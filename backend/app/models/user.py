@@ -5,6 +5,9 @@ from sqlalchemy.orm import Mapped, mapped_column,relationship
 
 from app.core.database import Base
 from app.models.role import Role
+from typing import TYPE_CHECKING
+
+from app.models.customer import CustomerProfile
 
 
 user_roles = Table(
@@ -53,4 +56,8 @@ class User(Base):
     roles: Mapped[list["Role"]] = relationship(
     secondary=user_roles,
     back_populates="users",
+)
+    customer_profile: Mapped["CustomerProfile | None"] = relationship(
+    back_populates="user",
+    uselist=False,
 )

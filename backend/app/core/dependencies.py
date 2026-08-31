@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.models import User
+from typing import Callable
 
 
 bearer_scheme = HTTPBearer()
@@ -44,3 +45,19 @@ def get_current_user(
         raise credentials_exception
 
     return user
+
+def require_role(required_role: str) -> Callable:
+    def role_dependency(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        user_roles = {role.name for role in current_user.roles}
+
+        if required_role not in user_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to access this resource",
+            )
+
+        return current_user
+
+    return role_dependency

@@ -1,8 +1,8 @@
 from app.core.config import settings
 from app.core.database import Base
-from app.models import Role, User, user_roles
 from logging.config import fileConfig
 
+from app.models import CustomerProfile, Role, User, user_roles
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
