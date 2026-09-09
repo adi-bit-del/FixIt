@@ -9,6 +9,11 @@ from typing import TYPE_CHECKING
 
 from app.models.customer import CustomerProfile
 
+if TYPE_CHECKING:
+    from app.models.customer import CustomerProfile
+    from app.models.professional import ProfessionalProfile
+    from app.models.role import Role
+
 
 user_roles = Table(
     "user_roles",
@@ -58,6 +63,11 @@ class User(Base):
     back_populates="users",
 )
     customer_profile: Mapped["CustomerProfile | None"] = relationship(
+    back_populates="user",
+    uselist=False,
+)
+
+    professional_profile: Mapped["ProfessionalProfile | None"] = relationship(
     back_populates="user",
     uselist=False,
 )

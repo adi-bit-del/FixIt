@@ -1,7 +1,12 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import CustomerProfile
+from app.models import (
+    Booking,
+    CustomerProfile,
+    ServiceRequest,
+    User,
+)
 
 
 def get_customer_profile(
@@ -56,3 +61,69 @@ def update_customer_profile(
     db.flush()
 
     return profile
+
+
+def get_admin_customers(
+    db: Session,
+) -> list[dict]:
+    requests_count = (
+        select(func.count(ServiceRequest.id))
+        .where(
+            ServiceRequest.customer_profile_id
+            == CustomerProfile.id
+        )
+        .correlate(CustomerProfile)
+        .scalar_subquery()
+    )
+
+    bookings_count = (
+        select(func.count(Booking.id))
+        .where(
+            Booking.customer_profile_id
+            == CustomerProfile.id
+        )
+        .correlate(CustomerProfile)
+        .scalar_subquery()
+    )
+
+    rows = db.execute(
+        select(
+            CustomerProfile,
+            User.email,
+            User.is_active,
+            User.created_at,
+            requests_count.label("requests_count"),
+            bookings_count.label("bookings_count"),
+        )
+        .join(
+            User,
+            CustomerProfile.user_id == User.id,
+        )
+        .order_by(
+            User.created_at.desc(),
+        )
+    ).all()
+
+    return [
+        {
+            "id": customer.id,
+            "user_id": customer.user_id,
+            "first_name": customer.first_name,
+            "last_name": customer.last_name,
+            "phone": customer.phone,
+            "profile_image_url": customer.profile_image_url,
+            "email": email,
+            "is_active": is_active,
+            "created_at": created_at,
+            "requests_count": requests_count_value,
+            "bookings_count": bookings_count_value,
+        }
+        for (
+            customer,
+            email,
+            is_active,
+            created_at,
+            requests_count_value,
+            bookings_count_value,
+        ) in rows
+    ]

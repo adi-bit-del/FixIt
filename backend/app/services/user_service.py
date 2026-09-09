@@ -2,8 +2,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.password import hash_password, verify_password
-from app.models import Role, User
+from app.models import (
+    CustomerProfile,
+    ProfessionalProfile,
+    Role,
+    User,
+)
 
+
+PUBLIC_REGISTRATION_ROLES = {"CUSTOMER", "PROFESSIONAL"}
 
 
 def authenticate_user(
@@ -31,6 +38,7 @@ def create_user(
     db: Session,
     email: str,
     password: str,
+    role_name: str,
 ) -> User:
     existing_user = db.scalar(
         select(User).where(User.email == email)
@@ -39,21 +47,43 @@ def create_user(
     if existing_user:
         raise ValueError("Email is already registered")
 
-    customer_role = db.scalar(
-        select(Role).where(Role.name == "CUSTOMER")
+    role_name = role_name.upper()
+
+    if role_name not in PUBLIC_REGISTRATION_ROLES:
+        raise ValueError("Invalid registration role")
+
+    role = db.scalar(
+        select(Role).where(Role.name == role_name)
     )
 
-    if customer_role is None:
-        raise ValueError("CUSTOMER role does not exist")
+    if role is None:
+        raise ValueError(f"{role_name} role does not exist")
 
     user = User(
         email=email,
         password_hash=hash_password(password),
     )
 
-    user.roles.append(customer_role)
+    user.roles.append(role)
 
     db.add(user)
+    db.flush()
+
+    if role_name == "CUSTOMER":
+        customer_profile = CustomerProfile(
+            user_id=user.id,
+        )
+
+        db.add(customer_profile)
+
+    elif role_name == "PROFESSIONAL":
+        professional_profile = ProfessionalProfile(
+            user_id=user.id,
+            business_name=email.split("@")[0],
+        )
+
+        db.add(professional_profile)
+
     db.flush()
 
     return user

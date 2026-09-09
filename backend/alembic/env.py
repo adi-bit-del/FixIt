@@ -2,7 +2,8 @@ from app.core.config import settings
 from app.core.database import Base
 from logging.config import fileConfig
 
-from app.models import CustomerProfile, Role, User, user_roles
+from app.models import Address,Booking, CustomerProfile, Notification, Payment, ProfessionalProfile, ProfessionalServiceArea, ProfessionalService, Quote, Review, ServiceRequest, Role, Service, ServiceCategory, User, user_roles
+
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 

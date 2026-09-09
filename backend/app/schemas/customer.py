@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, Field
 
 
@@ -56,3 +58,24 @@ class CustomerProfileResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class AdminCustomerResponse(BaseModel):
+    id: int
+    user_id: int
+
+    first_name: str | None
+    last_name: str | None
+    phone: str | None
+    profile_image_url: str | None
+
+    email: str
+    is_active: bool
+    created_at: datetime
+
+    requests_count: int
+    bookings_count: int
+
+
+class AdminCustomerStatusUpdate(BaseModel):
+    is_active: bool

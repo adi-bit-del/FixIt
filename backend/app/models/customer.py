@@ -4,6 +4,9 @@ from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.models.address import Address
 
 
 class CustomerProfile(Base):
@@ -55,3 +58,8 @@ class CustomerProfile(Base):
     user: Mapped["User"] = relationship(
         back_populates="customer_profile",
     )
+
+    addresses: Mapped[list["Address"]] = relationship(
+    back_populates="customer_profile",
+    cascade="all, delete-orphan",
+)

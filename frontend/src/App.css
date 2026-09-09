@@ -1,0 +1,13 @@
+/* ==========================================================================
+   FIXIT APPLICATION STYLES
+   ========================================================================== */
+
+/*
+ * Keep application-wide styling here intentionally small.
+ *
+ * Shared design tokens, resets, buttons, inputs, cards, responsive
+ * container rules, and accessibility defaults live in index.css.
+ *
+ * Page-specific styling belongs inside the relevant feature/page rather
+ * than accumulating here.
+ */
