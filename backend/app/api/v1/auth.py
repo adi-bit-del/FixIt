@@ -48,11 +48,11 @@ def register(
         )
 
     user = create_user(
-        db=db,
-        email=payload.email,
-        password=payload.password,
-        role=payload.role,
-    )
+    db=db,
+    email=payload.email,
+    password=payload.password,
+    role_name=payload.role,
+)
 
     db.commit()
     db.refresh(user)
