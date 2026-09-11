@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -25,7 +26,10 @@ from app.services.user_service import (
     create_user,
 )
 
-router = APIRouter(prefix="/auth", tags=["Auth"])
+router = APIRouter(
+    prefix="/auth",
+    tags=["Auth"],
+)
 
 
 @router.post(
@@ -37,8 +41,10 @@ def register(
     payload: RegisterRequest,
     db: Session = Depends(get_db),
 ):
+    email = str(payload.email).strip().lower()
+
     existing_user = db.scalar(
-        select(User).where(User.email == payload.email)
+        select(User).where(User.email == email)
     )
 
     if existing_user is not None:
@@ -47,17 +53,34 @@ def register(
             detail="An account with this email already exists.",
         )
 
-    user = create_user(
-    db=db,
-    email=payload.email,
-    password=payload.password,
-    role_name=payload.role,
-)
+    try:
+        user = create_user(
+            db=db,
+            email=email,
+            password=payload.password,
+            role_name=payload.role,
+        )
 
-    db.commit()
-    db.refresh(user)
+        db.commit()
+        db.refresh(user)
 
-    return UserResponse.from_user(user)
+        return UserResponse.from_user(user)
+
+    except ValueError as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Unable to create the account with the provided details.",
+        )
 
 
 @router.post(
@@ -68,11 +91,18 @@ def login(
     payload: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    user = authenticate_user(
-        db=db,
-        email=payload.email,
-        password=payload.password,
-    )
+    try:
+        user = authenticate_user(
+            db=db,
+            email=str(payload.email).strip().lower(),
+            password=payload.password,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if user is None:
         raise HTTPException(
@@ -114,8 +144,10 @@ def forgot_password(
     payload: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
+    email = str(payload.email).strip().lower()
+
     user = db.scalar(
-        select(User).where(User.email == payload.email)
+        select(User).where(User.email == email)
     )
 
     generic_message = (
@@ -123,7 +155,6 @@ def forgot_password(
         "a password reset link has been generated."
     )
 
-    # Do not reveal whether the email is registered.
     if user is None or not user.is_active:
         return ForgotPasswordResponse(
             message=generic_message,
@@ -137,7 +168,7 @@ def forgot_password(
     db.commit()
 
     reset_url = (
-        f"{settings.frontend_base_url}"
+        f"{settings.frontend_base_url.rstrip('/')}"
         f"/reset-password?token={reset_token}"
     )
 
