@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-  type ReactNode,
-} from "react";
+import * as React from "react";
 
 import {
   ArrowLeft,
@@ -18,14 +11,15 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import FixItLogo from "../../components/FixItLogo";
+
 import {
   Link,
-  Navigate,
   useLocation,
   useNavigate,
   useSearchParams,
 } from "react-router-dom";
+
+import FixItLogo from "../../components/FixItLogo";
 
 import { useAuth } from "./AuthContext";
 
@@ -33,7 +27,6 @@ import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Input from "../../components/ui/Input";
 
-import type { UserRole } from "../../types/auth";
 
 type LoginRole = "CUSTOMER" | "PROFESSIONAL";
 
@@ -47,12 +40,7 @@ interface LoginLocationState {
 }
 
 export default function LoginPage() {
-  const {
-    user,
-    isLoading: authLoading,
-    login,
-  } = useAuth();
-
+  const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -62,45 +50,46 @@ export default function LoginPage() {
     location.state as LoginLocationState | null;
 
   const roleFromUrl = normalizeRole(
-    searchParams.get("role")
+    searchParams.get("role"),
   );
 
   const [selectedRole, setSelectedRole] =
-    useState<LoginRole | null>(roleFromUrl);
+    React.useState<LoginRole | null>(roleFromUrl);
 
-  const [email, setEmail] = useState(
-    locationState?.registeredEmail ?? ""
+  const [email, setEmail] = React.useState(
+    locationState?.registeredEmail ?? "",
   );
 
   const [password, setPassword] =
-    useState("");
+    React.useState("");
 
   const [showPassword, setShowPassword] =
-    useState(false);
+    React.useState(false);
 
   const [isSubmitting, setIsSubmitting] =
-    useState(false);
+    React.useState(false);
 
-  const [error, setError] = useState("");
+  const [error, setError] =
+    React.useState("");
 
   const [registrationMessage, setRegistrationMessage] =
-    useState("");
+    React.useState("");
 
-  useEffect(() => {
+  React.useEffect(() => {
     const role = normalizeRole(
-      searchParams.get("role")
+      searchParams.get("role"),
     );
 
     setSelectedRole(role);
   }, [searchParams]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!locationState?.registrationComplete) {
       return;
     }
 
     setRegistrationMessage(
-      "Account created successfully. Please sign in to continue."
+      "Account created successfully. Please sign in to continue.",
     );
 
     navigate(
@@ -111,7 +100,7 @@ export default function LoginPage() {
       {
         replace: true,
         state: null,
-      }
+      },
     );
   }, [
     location.pathname,
@@ -120,26 +109,31 @@ export default function LoginPage() {
     navigate,
   ]);
 
-  if (!authLoading && user) {
-    return (
-      <Navigate
-        to={getRolePath(user.roles)}
-        replace
-      />
-    );
-  }
+  /*
+   * Existing authenticated users:
+   *
+   * CUSTOMER     -> /customer
+   * PROFESSIONAL -> /professional
+   * ADMIN        -> /
+   *
+   * Admin is deliberately NOT auto-routed to /admin.
+   * They can manually open /admin after authentication.
+   */
+  // if (!authLoading && user) {
+  //   return (
+  //     <Navigate
+  //       to={getRolePath(user.roles)}
+  //       replace
+  //     />
+  //   );
+  // }
 
-  const selectedRoleLabel = useMemo(() => {
-    if (selectedRole === "PROFESSIONAL") {
-      return "Professional account";
-    }
+  const selectedRoleLabel =
+    selectedRole === "PROFESSIONAL"
+      ? "Professional account"
+      : "Customer account";
 
-    return "Customer account";
-  }, [selectedRole]);
-
-  function handleRoleSelect(
-    role: LoginRole
-  ) {
+  function handleRoleSelect(role: LoginRole) {
     setSelectedRole(role);
     setError("");
 
@@ -151,7 +145,7 @@ export default function LoginPage() {
       {
         replace: true,
         state: locationState,
-      }
+      },
     );
   }
 
@@ -174,12 +168,12 @@ export default function LoginPage() {
                 locationState.registeredEmail,
             }
           : null,
-      }
+      },
     );
   }
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>
+    event: React.FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
 
@@ -190,21 +184,21 @@ export default function LoginPage() {
 
     if (!normalizedEmail) {
       setError(
-        "Please enter your email address."
+        "Please enter your email address.",
       );
       return;
     }
 
     if (!password) {
       setError(
-        "Please enter your password."
+        "Please enter your password.",
       );
       return;
     }
 
     if (!selectedRole) {
       setError(
-        "Please select an account type."
+        "Please select an account type.",
       );
       return;
     }
@@ -212,51 +206,66 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
-      const authenticatedUser =
-        await login(
-          normalizedEmail,
-          password
-        );
+      const authenticatedUser = await login(
+        normalizedEmail,
+        password,
+      );
 
+      const authenticatedRoles =
+        authenticatedUser.roles;
+
+      /*
+       * ADMIN is not a selectable login type.
+       *
+       * Admin credentials are still allowed to
+       * authenticate successfully. However, we
+       * intentionally do NOT send the user to /admin.
+       *
+       * The admin can manually visit /admin after login.
+       */
+      if (authenticatedRoles.includes("ADMIN")) {
+        navigate("/", {
+          replace: true,
+        });
+
+        return;
+      }
+
+      /*
+       * Customer and Professional accounts must
+       * match the selected account type.
+       */
       const hasSelectedRole =
-        authenticatedUser.roles.includes(
-          selectedRole
+        authenticatedRoles.includes(
+          selectedRole,
         );
 
       if (!hasSelectedRole) {
         setError(
-          `This account is not registered as a ${selectedRoleLabel.toLowerCase()}. Please choose the correct account type.`
+          `This account is not registered as a ${selectedRoleLabel.toLowerCase()}. Please choose the correct account type.`,
         );
 
         return;
       }
 
-      const requestedPath =
-        locationState?.from?.pathname;
+      /*
+       * Always take the user directly to their
+       * selected workspace.
+       */
+      if (selectedRole === "PROFESSIONAL") {
+        navigate("/professional", {
+          replace: true,
+        });
 
-      const requestedSearch =
-        locationState?.from?.search ?? "";
+        return;
+      }
 
-      const defaultPath =
-  selectedRole === "PROFESSIONAL"
-    ? "/professional"
-    : "/customer";
-
-      const destination =
-        requestedPath &&
-        isPathAllowedForRole(
-          requestedPath,
-          selectedRole
-        )
-          ? `${requestedPath}${requestedSearch}`
-          : defaultPath;
-
-      navigate(destination, {
+      navigate("/customer", {
         replace: true,
       });
     } catch (error: unknown) {
       setError(
-        getLoginErrorMessage(error)
+        getLoginErrorMessage(error),
       );
     } finally {
       setIsSubmitting(false);
@@ -264,13 +273,13 @@ export default function LoginPage() {
   }
 
   function handleEmailChange(
-    event: ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) {
     setEmail(event.target.value);
   }
 
   function handlePasswordChange(
-    event: ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) {
     setPassword(event.target.value);
   }
@@ -289,17 +298,17 @@ export default function LoginPage() {
 
           <div className="relative z-10 flex w-full flex-col justify-between p-12 xl:p-16">
             <Link
-  to="/"
-  aria-label="FixIt home"
-  className="flex w-fit items-center"
->
-  <FixItLogo
-    variant="horizontal-white"
-    size="sm"
-    alt="FixIt"
-    className="h-7 w-auto max-w-[145px]"
-  />
-</Link>
+              to="/"
+              aria-label="FixIt home"
+              className="flex w-fit items-center"
+            >
+              <FixItLogo
+                variant="horizontal-white"
+                size="sm"
+                alt="FixIt"
+                className="h-7 w-auto max-w-[145px]"
+              />
+            </Link>
 
             <div className="max-w-xl">
               <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-2 text-xs font-semibold text-white">
@@ -351,19 +360,19 @@ export default function LoginPage() {
           <div className="mx-auto w-full max-w-md">
             {/* Mobile brand */}
             <div className="mb-8 lg:hidden">
-  <Link
-    to="/"
-    aria-label="FixIt home"
-    className="inline-flex items-center"
-  >
-    <FixItLogo
-      variant="horizontal"
-      size="sm"
-      alt="FixIt"
-      className="h-7 w-auto max-w-[140px]"
-    />
-  </Link>
-</div>
+              <Link
+                to="/"
+                aria-label="FixIt home"
+                className="inline-flex items-center"
+              >
+                <FixItLogo
+                  variant="horizontal"
+                  size="sm"
+                  alt="FixIt"
+                  className="h-7 w-auto max-w-[140px]"
+                />
+              </Link>
+            </div>
 
             {!selectedRole ? (
               <RoleSelection
@@ -465,7 +474,7 @@ export default function LoginPage() {
                           type="button"
                           onClick={() =>
                             setShowPassword(
-                              (value) => !value
+                              (value) => !value,
                             )
                           }
                           className="rounded-lg p-1.5 text-[var(--fixit-text-muted)] transition hover:bg-[var(--fixit-primary-soft)] hover:text-[var(--fixit-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--fixit-primary-ring)]"
@@ -495,11 +504,11 @@ export default function LoginPage() {
                       </label>
 
                       <Link
-  to="/forgot-password"
-  className="text-sm font-medium text-[var(--fixit-primary)] transition hover:text-[var(--fixit-primary-hover)]"
->
-  Forgot password?
-</Link>
+                        to="/forgot-password"
+                        className="text-sm font-medium text-[var(--fixit-primary)] transition hover:text-[var(--fixit-primary-hover)]"
+                      >
+                        Forgot password?
+                      </Link>
                     </div>
 
                     <Button
@@ -527,9 +536,11 @@ export default function LoginPage() {
                     to={`/register?role=${selectedRole.toLowerCase()}`}
                     className="mt-2 inline-flex font-semibold text-[var(--fixit-primary)] underline decoration-[var(--fixit-secondary)] decoration-2 underline-offset-4 transition hover:text-[var(--fixit-primary-hover)]"
                   >
-                    Create a {selectedRole === "CUSTOMER"
+                    Create a{" "}
+                    {selectedRole === "CUSTOMER"
                       ? "customer"
-                      : "professional"} account
+                      : "professional"}{" "}
+                    account
                   </Link>
                 </div>
 
@@ -557,13 +568,13 @@ function RoleSelection({
     <div>
       <div className="mb-9">
         <div className="mb-5 flex h-12 w-12 items-center justify-center">
-  <FixItLogo
-    variant="icon"
-    size="md"
-    alt="FixIt"
-    className="h-12 w-12"
-  />
-</div>
+          <FixItLogo
+            variant="icon"
+            size="md"
+            alt="FixIt"
+            className="h-12 w-12"
+          />
+        </div>
 
         <p className="mb-2 text-sm font-semibold text-[var(--fixit-secondary)]">
           Welcome to FixIt
@@ -654,14 +665,15 @@ function AccountTypeCard({
   onClick,
   accent = "primary",
 }: {
-  icon: ReactNode;
+  icon: React.ReactNode;
   eyebrow: string;
   title: string;
   description: string;
   onClick: () => void;
   accent?: "primary" | "secondary";
 }) {
-  const isSecondary = accent === "secondary";
+  const isSecondary =
+    accent === "secondary";
 
   return (
     <button
@@ -715,7 +727,7 @@ function Benefit({
   icon,
   text,
 }: {
-  icon: ReactNode;
+  icon: React.ReactNode;
   text: string;
 }) {
   return (
@@ -730,7 +742,7 @@ function Benefit({
 }
 
 function normalizeRole(
-  value: string | null
+  value: string | null,
 ): LoginRole | null {
   if (value === "customer") {
     return "CUSTOMER";
@@ -743,37 +755,27 @@ function normalizeRole(
   return null;
 }
 
-function getRolePath(
-  roles: UserRole[]
-): string {
-  if (roles.includes("ADMIN")) {
-    return "/admin";
-  }
+// function getRolePath(
+//   roles: UserRole[],
+// ): string {
+//   /*
+//    * IMPORTANT:
+//    * Admin must not be automatically routed
+//    * to /admin from the login page.
+//    */
+//   if (roles.includes("ADMIN")) {
+//     return "/";
+//   }
 
-  if (roles.includes("PROFESSIONAL")) {
-    return "/professional";
-  }
+//   if (roles.includes("PROFESSIONAL")) {
+//     return "/professional";
+//   }
 
-  return "/customer";
-}
-
-function isPathAllowedForRole(
-  path: string,
-  role: LoginRole
-): boolean {
-  if (role === "CUSTOMER") {
-    return path === "/customer" ||
-      path.startsWith("/customer/");
-  }
-
-  return (
-    path === "/professional" ||
-    path.startsWith("/professional/")
-  );
-}
+//   return "/customer";
+// }
 
 function getLoginErrorMessage(
-  error: unknown
+  error: unknown,
 ): string {
   if (
     typeof error === "object" &&
@@ -802,12 +804,12 @@ function getLoginErrorMessage(
     if (Array.isArray(detail)) {
       const firstMessage = detail.find(
         (
-          item
+          item,
         ): item is { msg: string } =>
           typeof item === "object" &&
           item !== null &&
           "msg" in item &&
-          typeof item.msg === "string"
+          typeof item.msg === "string",
       );
 
       if (firstMessage) {
